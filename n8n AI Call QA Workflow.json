@@ -1,0 +1,556 @@
+{
+  "name": "call QA-to html page-v2",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cc344476-1093-4668-8d42-d8afeb787a5e",
+              "name": "raw",
+              "value": "={{ $json.output?.[0]?.content?.[0]?.text ?? $json.raw }}\n",
+              "type": "string"
+            },
+            {
+              "id": "87aa91b7-4e3f-4301-854d-99e08151c73f",
+              "name": "result",
+              "value": "={{ $json.result || $json.raw || $json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -656,
+        -688
+      ],
+      "id": "9b4bbc68-46bf-41ae-9f45-6653770c62a5",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=You are a professional translator.\n\nTarget language (ISO 639-1 code): \"{{ $node[\"Webhook (UI request)\"].json.body.output_language }}\"\n\nRules:\n- Output ONLY the translated text\n- Do NOT explain\n- Do NOT add markdown\n- Do NOT mix languages\n- If the target code is \"en\", output in English\n\nText:\n{{ $json.raw }}\n\n\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "temperature": 0
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -1088,
+        -688
+      ],
+      "id": "ecf4ee1a-d7fa-4329-abc9-4ac574ea3c21",
+      "name": "Translator",
+      "credentials": {
+        "openAiApi": {
+          "id": "HPXiFGA0kl1Nnkot",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4311e2e9-11f7-4f18-a7a7-f2451fc5fd00",
+              "name": "raw",
+              "value": "={{$json.body.text}}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1728,
+        -736
+      ],
+      "id": "7e94fe6d-067e-49f8-8696-85a29a0bb4b4",
+      "name": "Prepare raw (translate_only)"
+    },
+    {
+      "parameters": {
+        "multipleMethods": true,
+        "httpMethod": [
+          "POST"
+        ],
+        "path": "v2",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*",
+          "binaryPropertyName": "data00",
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1792,
+        -1104
+      ],
+      "id": "047ce420-6ee6-439c-ac99-6000366424ea",
+      "name": "Webhook (UI request)",
+      "webhookId": "26071013-b69a-4cbe-afdf-759074a6044f"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "6b3f241e-6fe2-400b-a0f3-e98333bcd72e",
+              "leftValue": "={{ Object.keys($binary || {}).length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            },
+            {
+              "id": "e5e77194-d9e0-472f-b810-81558bc598e8",
+              "leftValue": "={{$json.body.mode}}",
+              "rightValue": "translate_only",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1568,
+        -1072
+      ],
+      "id": "82efd2c7-7a6f-47d8-908b-4cb2a14276af",
+      "name": "Route: send vs translate_only"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cc5c6f82-5797-4c1f-9e35-7bc8f4451fdd",
+              "name": "meta_target_language",
+              "value": "={{\n  (() => {\n    try {\n      const code = ($json.body.output_language || \"en\").toLowerCase();\n      const dn = new Intl.DisplayNames([\"en\"], { type: \"language\" });\n      return dn.of(code) || code;\n    } catch {\n      return \"English\";\n    }\n  })()\n}}\n\n",
+              "type": "string"
+            },
+            {
+              "id": "ea008f3f-a35f-4261-940e-4e5bb1451dad",
+              "name": "mode",
+              "value": "={{ $json.body.mode || \"full\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1312,
+        -1072
+      ],
+      "id": "16bfc3b1-eb3d-4ec4-8262-e8ff39f2f351",
+      "name": "Prepare audio + params"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ensure the incoming audio binary is ALWAYS named \"data0\"\nconst item = $input.first();\n\n// If there is no binary at all, throw a clear error\nif (!item.binary || Object.keys(item.binary).length === 0) {\n  throw new Error(\"No binary file received by webhook\");\n}\n\n// Take the first binary key (whatever it is: data, data0, data00, file, etc.)\nconst firstKey = Object.keys(item.binary)[0];\n\n// If it's already data0, keep it. Otherwise rename it to data0.\nif (firstKey !== \"data0\") {\n  item.binary.data0 = item.binary[firstKey];\n  delete item.binary[firstKey];\n}\n\nreturn [item];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1040,
+        -1072
+      ],
+      "id": "8aa98fd9-bd69-43bb-90fb-ef74a863fd84",
+      "name": "Build evaluator prompt"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "binaryPropertyName": "data0",
+        "options": {
+          "temperature": 0
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        -768,
+        -1056
+      ],
+      "id": "7517683d-028f-44af-acd1-d5d1f63be30b",
+      "name": "Transcribe audio",
+      "credentials": {
+        "openAiApi": {
+          "id": "HPXiFGA0kl1Nnkot",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=You are a call QA evaluator.\n\nIMPORTANT OUTPUT RULES\n- Output must be VALID JSON only. Do not output any extra text.\n- Use double quotes for all strings.\n- Do NOT wrap output in markdown/code fences.\n- Use EXACT keys:\n  result, call_summary, strengths, opportunities, overall_rating, overall_call_score\n\nINPUT\nTranscript:\n{{$json.text}}\n\nSTEP 1: TRANSCRIPT USABILITY CHECK\nInternally assess transcript clarity:\n- clear = mostly understandable dialogue\n- unclear = fragmented, repetitive, or largely unintelligible\n- empty = extremely short or meaningless\n\nCLARIFICATION RULE (MANDATORY)\n- Classify the transcript as CLEAR if the majority of the conversation (at least ~65%) is readable and coherent, even if there are minor gaps, noise, or missing words.\n- Only classify the transcript as UNCLEAR if large portions of the conversation are missing, unintelligible, or prevent understanding the overall call flow.\n- When in doubt between CLEAR and UNCLEAR, default to CLEAR.\n\n\nSTEP 2: SCORING DECISION\n- If transcript is empty:\n  - overall_rating = Not Scorable\n  - overall_call_score = N/A\n  - strengths = None\n  - opportunities = Transcript too poor to evaluate\n  - Still provide a short summary\n  - STOP\n\n- If transcript is unclear but not empty:\n  - Evaluate using best effort\n  - Apply the scoring rules, BUT:\n    - If computed overall_call_score > 25, FORCE it to 25\n  - overall_rating MUST be Poor\n\nSTEP 3: INTERNAL SCORING (DO NOT SHOW)\n\nUse the following 16 criteria internally. Total = 100.\n\nSCORING RULES (MANDATORY)\n- For EACH criterion, first decide: evidence = YES or NO.\n- If evidence = YES → award FULL points for that criterion.\n- If evidence = NO or unclear → award 0 points.\n- Do NOT give partial points under any circumstances.\n- Do NOT approximate, smooth, or adjust scores.\n- If the transcript does not clearly support a criterion, it MUST receive 0.\n\nCRITERIA LIST\n\n1 Greeting quality (5)\n2 No dead air / quick start (4)\n3 No interruptions (8)\n4 Caller name used (8)\n5 Verification followed (5)\n6 Probing questions (5)\n7 System/application consultation (5)\n8 Formal language + empathy + ownership (10)\n9 Communication attributes (3)\n10 Answered all queries (10)\n11 Caller satisfaction achieved (10)\n12 Effort to meet AHT ~4 minutes (5)\n13 Return from hold on time (3) – if no hold, full marks\n14 Hold procedure followed (4) – if no hold, full marks\n15 Asked for further assistance (8)\n16 Closing greeting/ending (7)\n\nTOTAL SCORE CALCULATION (MANDATORY)\n- overall_call_score MUST be the exact sum of awarded criterion scores.\n- overall_rating MUST be derived ONLY from overall_call_score:\n  - 0–25 = Poor\n  - 26–60 = Average\n  - 61–100 = Good\n\nSTEP 4: STRENGTHS & OPPORTUNITIES RULES\n- Strengths must be based ONLY on clearly audible or readable evidence.\n- If transcript is unclear, list a maximum of 1–2 strengths.\n- Do NOT infer positives from missing information.\n- Opportunities should focus on communication, process, and compliance gaps.\n\nSTEP 5: OUTPUT (JSON ONLY)\nReturn a single JSON object with:\n- call_summary: (1–3 concise sentences. If transcript is unclear, explicitly state that.)\n- strengths: hyphen bullet list as a single string. Example:\n  \"- Point 1\\n- Point 2\"\n- opportunities: hyphen bullet list as a single string. Example:\n  \"- Point 1\\n- Point 2\\n- Point 3\"\n- overall_rating: \"Good\" / \"Average\" / \"Poor\" / \"Not Scorable\"\n- overall_call_score: integer 0–100 OR \"N/A\"\n- result: plain text formatted EXACTLY like below using the above values:\n\nSummary:\n{call_summary}\n\nStrengths:\n{strengths}\n\nOpportunities:\n{opportunities}\n\nOverall Rating:\n{overall_rating}\n\nOverall Call Score:\n{overall_call_score}\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "temperature": 0
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        -544,
+        -1056
+      ],
+      "id": "25049f6f-5570-414b-8209-ee6e002d9022",
+      "name": "Evaluator → Evaluate call",
+      "credentials": {
+        "openAiApi": {
+          "id": "HPXiFGA0kl1Nnkot",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bf86bd39-24ae-452b-a356-cda719eef42b",
+              "name": "raw",
+              "value": "={{$json.output[0].content[0].text}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1312,
+        -848
+      ],
+      "id": "878d0aea-920e-4040-ae0f-61024e09a12d",
+      "name": "Prepare raw for translation (send)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Expect a JSON string in $json.raw\nconst s = $json.raw || \"\";\n\n// Try to parse JSON\nlet obj;\ntry {\n  obj = JSON.parse(s);\n} catch (e) {\n  obj = {\n    result: s,\n    call_summary: \"\",\n    strengths: \"\",\n    opportunities: \"\",\n    overall_rating: \"\",\n    overall_call_score: \"\"\n  };\n}\n\n// IMPORTANT: return a SINGLE object, NOT an array\nreturn {\n  result: obj.result ?? \"\",\n  call_summary: obj.call_summary ?? \"\",\n  strengths: obj.strengths ?? \"\",\n  opportunities: obj.opportunities ?? \"\",\n  overall_rating: obj.overall_rating ?? \"\",\n  overall_call_score: obj.overall_call_score ?? \"\"\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        -688
+      ],
+      "id": "f25828d7-7cdc-4429-af66-115bb1f297c0",
+      "name": "Parse evaluation JSON"
+    },
+    {
+      "parameters": {
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -144,
+        -704
+      ],
+      "id": "5b3139a7-c865-4078-ab4e-49a998b8c306",
+      "name": "cleanup → Final response shape"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -128,
+        -416
+      ],
+      "id": "45458961-51e2-4d38-a9b0-ce951a029f0a",
+      "name": "Return response to UI"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cebcee33-2df5-4689-bbb9-76b56bbc1a00",
+              "name": "error",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "8a32d35c-a24d-42ad-91ef-5aa52e8c51cf",
+              "name": "message",
+              "value": "Please choose an audio file before clicking Send.",
+              "type": "string"
+            },
+            {
+              "id": "207ca8b7-89f2-4e37-9d89-94a16455b4af",
+              "name": "result",
+              "value": "\"\"",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1472,
+        -464
+      ],
+      "id": "8b4f0c33-2e42-46aa-8ea6-e9c4a68c5488",
+      "name": "Guard: no audio selected"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Parse evaluation JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Translator": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare raw (translate_only)": {
+      "main": [
+        [
+          {
+            "node": "Translator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook (UI request)": {
+      "main": [
+        [
+          {
+            "node": "Route: send vs translate_only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route: send vs translate_only": {
+      "main": [
+        [
+          {
+            "node": "Prepare audio + params",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Guard: no audio selected",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare raw (translate_only)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare audio + params": {
+      "main": [
+        [
+          {
+            "node": "Build evaluator prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build evaluator prompt": {
+      "main": [
+        [
+          {
+            "node": "Transcribe audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe audio": {
+      "main": [
+        [
+          {
+            "node": "Evaluator → Evaluate call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluator → Evaluate call": {
+      "main": [
+        [
+          {
+            "node": "Prepare raw for translation (send)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare raw for translation (send)": {
+      "main": [
+        [
+          {
+            "node": "Translator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse evaluation JSON": {
+      "main": [
+        [
+          {
+            "node": "cleanup → Final response shape",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "cleanup → Final response shape": {
+      "main": [
+        [
+          {
+            "node": "Return response to UI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guard: no audio selected": {
+      "main": [
+        [
+          {
+            "node": "Return response to UI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "85079e87-bd52-4064-acdd-ce9595525a29",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ab9ca3e5a90e52cee7886caddb464e9087e95c0effb0909e615baba673614675"
+  },
+  "id": "hFXgThxMPoMg5ZCC",
+  "tags": [
+    {
+      "updatedAt": "2025-12-23T12:39:32.620Z",
+      "createdAt": "2025-12-23T12:39:32.620Z",
+      "id": "0Go7oyl2PvHTWSKA",
+      "name": "qa"
+    }
+  ]
+}
